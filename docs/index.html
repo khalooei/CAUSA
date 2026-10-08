@@ -1,0 +1,791 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CAUSA: Does Location Matter?</title>
+<meta name="description" content="A black-box causal audit of audio grounding in large audio-language model hallucination. Khalooei and Sabokrou.">
+<meta property="og:title" content="Does Location Matter? A Black-Box Causal Audit of Audio Grounding in LALM Hallucination">
+<meta property="og:description" content="Remove only the evidence a claim relies on, keep the rest of the recording intact, and see whether the model changes its mind.">
+<meta property="og:image" content="assets/fig_illustration.png">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%232a78d6'/%3E%3Cpath d='M5 16h4l2-7 3 14 3-10 2 5h8' stroke='white' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<style>
+:root {
+  color-scheme: light;
+  --bg: #ffffff;
+  --surface-1: #fcfcfb;
+  --surface-2: #f4f3ef;
+  --text-primary: #0b0b0b;
+  --text-secondary: #52514e;
+  --muted: #898781;
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+  --border: rgba(11,11,11,0.10);
+  --accent: #2a78d6;
+  --s-loc: #2a78d6;      /* CLAP-localized */
+  --s-rand: #eb6834;     /* random window */
+  --s-oracle: #1baf7a;   /* oracle window */
+  --s-neutral: #898781;  /* blank / baselines */
+  --code-bg: #f4f3ef;
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --bg: #121211;
+    --surface-1: #1a1a19;
+    --surface-2: #232321;
+    --text-primary: #ffffff;
+    --text-secondary: #c3c2b7;
+    --muted: #898781;
+    --grid: #2c2c2a;
+    --axis: #383835;
+    --border: rgba(255,255,255,0.10);
+    --accent: #3987e5;
+    --s-loc: #3987e5;
+    --s-rand: #d95926;
+    --s-oracle: #199e70;
+    --code-bg: #1f1f1d;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #121211; --surface-1: #1a1a19; --surface-2: #232321;
+  --text-primary: #ffffff; --text-secondary: #c3c2b7; --muted: #898781;
+  --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+  --accent: #3987e5; --s-loc: #3987e5; --s-rand: #d95926; --s-oracle: #199e70;
+  --code-bg: #1f1f1d;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--text-primary);
+  font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+.wrap { max-width: 960px; margin: 0 auto; padding: 0 16px; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+h1, h2, h3 { font-family: Georgia, "Times New Roman", serif; font-weight: 600; line-height: 1.25; }
+h2 { font-size: 1.6rem; margin: 0 0 .4rem; }
+h3 { font-size: 1.1rem; margin: 1.6rem 0 .4rem; }
+section { padding: 48px 0; border-top: 1px solid var(--border); }
+.lede { color: var(--text-secondary); max-width: 720px; margin: 0 0 1.2rem; }
+code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .86em; }
+pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; line-height: 1.5; margin: 0; }
+
+/* header */
+header { padding: 64px 0 40px; text-align: center; }
+header h1 { font-size: clamp(1.7rem, 4.2vw, 2.6rem); margin: 0 auto 1rem; max-width: 860px; }
+.venue { letter-spacing: .12em; text-transform: uppercase; font-size: .78rem; color: var(--muted); margin-bottom: 1rem; }
+.authors { font-size: 1.1rem; margin: 0 0 .3rem; }
+.authors span + span { margin-left: 1.4em; }
+.affil { color: var(--text-secondary); font-size: .92rem; margin: 0 0 1.6rem; }
+.buttons { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+.btn {
+  display: inline-flex; align-items: center; gap: 8px; padding: 9px 18px; border-radius: 999px;
+  background: var(--text-primary); color: var(--bg); font-weight: 600; font-size: .94rem;
+  border: 1px solid var(--text-primary); cursor: pointer; font-family: inherit;
+}
+.btn:hover { text-decoration: none; opacity: .88; }
+.btn.ghost { background: transparent; color: var(--text-primary); border-color: var(--axis); }
+.btn svg { width: 16px; height: 16px; }
+
+.teaser { margin: 0; }
+.teaser img { width: 100%; max-width: 720px; display: block; margin: 0 auto; border-radius: 8px; background: #fff; }
+figcaption { color: var(--text-secondary); font-size: .92rem; max-width: 720px; margin: .8rem auto 0; }
+
+/* tldr */
+.tldr { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 1.4rem; }
+.stat { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 18px; }
+.stat .num { font-family: Georgia, serif; font-size: 2rem; font-weight: 600; line-height: 1.1; }
+.stat .lbl { color: var(--text-secondary); font-size: .9rem; margin-top: .4rem; }
+@media (max-width: 720px) { .tldr { grid-template-columns: 1fr; } }
+
+/* demo */
+.panel { background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px; padding: 18px; }
+.controls { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; margin-bottom: 12px; font-size: .92rem; }
+.controls label { color: var(--text-secondary); display: inline-flex; align-items: center; gap: 6px; }
+.seg { display: inline-flex; border: 1px solid var(--axis); border-radius: 999px; overflow: hidden; }
+.seg button { border: 0; background: transparent; color: var(--text-secondary); padding: 5px 12px; font: inherit; font-size: .88rem; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--text-primary); color: var(--bg); }
+.file { position: relative; overflow: hidden; }
+.file input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.spec-wrap { position: relative; touch-action: none; user-select: none; }
+.spec-wrap canvas { width: 100%; height: 180px; display: block; border-radius: 6px; background: #000; cursor: crosshair; }
+.spec-label { position: absolute; left: 8px; top: 6px; font-size: .75rem; color: #fff; background: rgba(0,0,0,.55); padding: 1px 6px; border-radius: 4px; pointer-events: none; }
+.sel { position: absolute; top: 0; bottom: 0; border: 2px solid #4fd1ff; pointer-events: none; display: none; }
+.sel.rand { border: 2px dashed #fff; }
+.spec-axis { display: flex; justify-content: space-between; font-size: .75rem; color: var(--muted); margin: 4px 2px 12px; font-variant-numeric: tabular-nums; }
+.players { display: flex; flex-wrap: wrap; gap: 10px; }
+.play { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--axis); background: var(--bg); color: var(--text-primary); font: inherit; font-size: .9rem; cursor: pointer; }
+.play:disabled { opacity: .45; cursor: default; }
+.play .key { width: 14px; height: 3px; border-radius: 2px; }
+.play.playing { border-color: var(--text-primary); }
+.note { color: var(--text-secondary); font-size: .88rem; margin: 12px 0 0; }
+
+/* charts */
+.charts { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+@media (max-width: 760px) { .charts { grid-template-columns: 1fr; } }
+.chart { background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px; padding: 16px 16px 10px; position: relative; }
+.chart h4 { margin: 0; font-size: .98rem; font-weight: 600; }
+.chart .sub { color: var(--text-secondary); font-size: .84rem; margin: 2px 0 8px; }
+.chart svg { width: 100%; height: auto; display: block; overflow: visible; }
+.chart .head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; flex-wrap: wrap; }
+.legend { display: flex; gap: 14px; font-size: .8rem; color: var(--text-secondary); margin: 4px 0 2px; flex-wrap: wrap; }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+.legend i.dash { height: 0; border-top: 2px dashed var(--muted); border-radius: 0; width: 14px; vertical-align: 3px; }
+.axis-text { fill: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.val-text { fill: var(--text-primary); font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.cat-text { fill: var(--text-secondary); font-size: 12px; }
+.gridline { stroke: var(--grid); stroke-width: 1; }
+.baseline { stroke: var(--axis); stroke-width: 1; }
+.bar { transition: opacity .12s; }
+.hit { fill: transparent; cursor: default; }
+.hit:focus { outline: none; }
+.chart.hovering .bar { opacity: .55; }
+.chart.hovering .bar.on { opacity: 1; }
+.tip {
+  position: absolute; pointer-events: none; background: var(--bg); border: 1px solid var(--border);
+  box-shadow: 0 4px 16px rgba(0,0,0,.12); border-radius: 8px; padding: 8px 10px; font-size: .82rem;
+  opacity: 0; transition: opacity .1s; white-space: nowrap; z-index: 2;
+}
+.tip strong { display: block; font-size: .95rem; font-variant-numeric: tabular-nums; }
+.tip span { color: var(--text-secondary); }
+.tip .k { display: inline-block; width: 12px; height: 3px; border-radius: 2px; margin-right: 6px; vertical-align: 3px; }
+details.table { margin-top: 6px; font-size: .82rem; color: var(--text-secondary); }
+details.table summary { cursor: pointer; }
+details.table table { border-collapse: collapse; margin-top: 6px; width: 100%; }
+details.table td, details.table th { border-bottom: 1px solid var(--border); padding: 3px 6px; text-align: left; font-variant-numeric: tabular-nums; }
+.wide { grid-column: 1 / -1; }
+@media (max-width: 600px) {
+  .axis-text { font-size: 14px; }
+  .val-text { font-size: 14px; }
+  .cat-text { font-size: 14px; }
+}
+
+/* method */
+.steps { counter-reset: s; display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; padding: 0; margin: 1rem 0 0; list-style: none; }
+.steps li { counter-increment: s; background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px 16px 54px; position: relative; }
+.steps li::before { content: counter(s); position: absolute; left: 16px; top: 15px; width: 26px; height: 26px; border-radius: 50%; background: var(--text-primary); color: var(--bg); font-weight: 700; font-size: .85rem; display: grid; place-items: center; }
+.steps b { display: block; margin-bottom: 2px; }
+.steps p { margin: 0; color: var(--text-secondary); font-size: .92rem; }
+@media (max-width: 720px) { .steps { grid-template-columns: 1fr; } }
+.eq { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px; margin: 1rem 0; overflow-x: auto; font-family: Georgia, serif; font-size: 1.05rem; text-align: center; white-space: nowrap; }
+
+.findings { display: grid; gap: 14px; margin-top: 1.2rem; }
+.finding { display: grid; grid-template-columns: 160px 1fr; gap: 18px; align-items: start; padding: 14px 0; border-bottom: 1px solid var(--border); }
+.finding:last-child { border-bottom: 0; }
+.finding .big { font-family: Georgia, serif; font-size: 1.6rem; font-weight: 600; line-height: 1.15; }
+.finding .big small { display: block; font-family: inherit; font-size: .8rem; color: var(--muted); font-weight: 400; margin-top: 4px; }
+.finding p { margin: 0; color: var(--text-secondary); }
+.finding p b { color: var(--text-primary); }
+@media (max-width: 640px) { .finding { grid-template-columns: 1fr; gap: 4px; } }
+
+.bib { position: relative; }
+.copy { position: absolute; top: 8px; right: 8px; font-size: .8rem; padding: 4px 10px; }
+footer { padding: 32px 0 48px; color: var(--muted); font-size: .85rem; border-top: 1px solid var(--border); }
+.theme-toggle { position: absolute; top: 14px; right: 14px; z-index: 5; width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface-1); color: var(--text-primary); cursor: pointer; display: grid; place-items: center; }
+.theme-toggle svg { width: 18px; height: 18px; }
+</style>
+</head>
+<body>
+
+<button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode" title="Toggle dark mode">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+</button>
+
+<header>
+  <div class="wrap">
+    <div class="venue">ICASSP 2027 submission</div>
+    <h1>Does Location Matter? A Black-Box Causal Audit Reveals Model-Dependent Audio Grounding in LALM Hallucination</h1>
+    <p class="authors"><span>Mohammad Khalooei<sup>1</sup></span><span>Mohammad Sabokrou<sup>2,3</sup></span></p>
+    <p class="affil"><sup>1</sup>Sharif University of Technology &nbsp;&middot;&nbsp; <sup>2</sup>New Uzbekistan University &nbsp;&middot;&nbsp; <sup>3</sup>Okinawa Institute of Science and Technology</p>
+    <div class="buttons">
+      <a class="btn" href="https://github.com/khalooei/CAUSA/blob/main/paper/main.pdf">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h8"/></svg>Paper</a>
+      <a class="btn" href="https://github.com/khalooei/CAUSA">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.9 1.3 1.9 1.3 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-6 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17.3 4.7 18.3 5 18.3 5c.7 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .5z"/></svg>Code</a>
+      <a class="btn ghost" href="#demo">Interactive demo</a>
+      <a class="btn ghost" href="#citation">BibTeX</a>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <figure class="teaser">
+    <img src="assets/fig_illustration.png" alt="Spectrogram of a 9-second clip before and after removing the CLAP-localized window at 6 to 8 seconds; a dashed random control window sits at 0.5 to 2.5 seconds.">
+    <figcaption>A correct "laughter" claim from Qwen2-Audio. Removing only the CLAP-localized window (cyan, 6-8 s) drops P(yes) from 0.905 to 0.133 and flips the answer. Removing a random window of the same length (dashed) leaves the answer unchanged.</figcaption>
+  </figure>
+</div>
+
+<section id="abstract">
+  <div class="wrap">
+    <h2>Summary</h2>
+    <p class="lede">Large audio-language models often affirm sounds that are not in the recording. The usual inference-time fix, Audio-Aware Decoding, contrasts the real clip against an all-zero waveform, but silence is out-of-distribution for the audio encoder, so this confounds <em>evidence absent</em> with <em>input malformed</em>.</p>
+    <p class="lede">We remove only the region a claim should rely on, keep the rest of the recording intact, and compare against an equally long random region. The test needs only waveforms in and yes/no probabilities out: no gradients, no internal activations, no training.</p>
+    <div class="tldr">
+      <div class="stat"><div class="num">0.067 / 0.071</div><div class="lbl">Blank audio's mean effect: predicted from removed duration alone vs. observed. Its edge over localized removal is a duration effect.</div></div>
+      <div class="stat"><div class="num">62.5% vs 41.5%</div><div class="lbl">Audio Flamingo 3 true positives flipped by localized vs. random removal of the same length.</div></div>
+      <div class="stat"><div class="num">57.1% &rarr; 71.9%</div><div class="lbl">Qwen2-Audio accuracy on its own "yes" answers after combined, gated contrastive decoding (cross-validated).</div></div>
+    </div>
+  </div>
+</section>
+
+<section id="demo">
+  <div class="wrap">
+    <h2>Try the intervention</h2>
+    <p class="lede">This applies the same intervention as <code>spectral_gate_remove</code> to audio in your browser: the selected span is attenuated with 50 ms raised edges and everything else is left untouched. Drag on the spectrogram to choose the region, then listen to the result next to a random region of the same length. Nothing is uploaded.</p>
+    <div class="panel">
+      <div class="controls">
+        <button class="btn ghost" id="loadSample" type="button">Load example signal</button>
+        <span class="btn ghost file">Open your own audio file<input type="file" id="fileIn" accept="audio/*"></span>
+        <label>Depth <span class="seg" id="depthSeg"><button type="button" data-v="-40" aria-pressed="false">-40 dB</button><button type="button" data-v="-100" aria-pressed="true">-100 dB</button></span></label>
+        <label>Window <span class="seg" id="winSeg"><button type="button" data-v="2" aria-pressed="false">2 s</button><button type="button" data-v="4" aria-pressed="true">4 s</button></span></label>
+      </div>
+      <div class="spec-wrap" id="specWrap">
+        <canvas id="spec" width="1200" height="240" aria-label="Spectrogram; drag to select the region to remove"></canvas>
+        <div class="spec-label" id="specLabel">Load a signal to begin</div>
+        <div class="sel" id="selLoc"></div>
+        <div class="sel rand" id="selRand"></div>
+      </div>
+      <div class="spec-axis" id="specAxis"><span>0 s</span><span></span></div>
+      <div class="players">
+        <button class="play" data-k="orig" disabled><span class="key" style="background:var(--text-secondary)"></span>Original</button>
+        <button class="play" data-k="loc" disabled><span class="key" style="background:#4fd1ff"></span>Selected region removed</button>
+        <button class="play" data-k="rand" disabled><span class="key" style="background:var(--s-rand)"></span>Random region removed</button>
+        <button class="play" id="reroll" type="button" disabled>New random region</button>
+      </div>
+      <p class="note">The example is a synthetic 10 s signal (background noise plus a few tonal events), generated in the page. The model queries themselves need a GPU and run with <a href="https://github.com/khalooei/CAUSA/blob/main/examples/necessity_demo.py"><code>examples/necessity_demo.py</code></a>.</p>
+    </div>
+  </div>
+</section>
+
+<section id="method">
+  <div class="wrap">
+    <h2>Method</h2>
+    <p class="lede">For a claim "yes, there is a sound of <i>o</i>", every condition is scored the same way: one deterministic forward pass, reading the next-token probabilities of "yes" and "no".</p>
+    <ol class="steps">
+      <li><b>Localize</b><p>Slide a 2 s or 4 s window (0.5 s hop) over the clip and score each window against "a sound of <i>o</i>" with LAION-CLAP. The best window is R(<i>o</i>).</p></li>
+      <li><b>Remove</b><p>Attenuate R(<i>o</i>) by -40 or -100 dB with STFT masking and 50 ms raised-cosine edges, then ask again: a test of necessity, do(R(<i>o</i>) := &empty;).</p></li>
+      <li><b>Control</b><p>Repeat on a random window of the same size, on an all-zero clip (the AAD contrast), and with no audio block at all (the language prior).</p></li>
+      <li><b>Validate</b><p>Insert a real exemplar of <i>o</i> into a clip the model correctly rejects and check that it flips to "yes": a test of sufficiency.</p></li>
+    </ol>
+    <h3>From a binary flip to a graded curve</h3>
+    <p class="lede">Removing the top-ranked windows one after another gives the minimal necessary removal fraction. Its mean equals the area under the deletion curve, so the familiar deletion metric becomes the mean of a latent counterfactual.</p>
+    <div class="eq">R* = inf { r &isin; [0,1] : C(do(R<sub>r</sub>)) = no }, &nbsp;&nbsp; E[R*] = &int;<sub>0</sub><sup>1</sup> (1 &minus; PN(r)) dr</div>
+    <h3>From detection to correction</h3>
+    <p class="lede">The same contrasts correct the answer at decoding time. The combined rule subtracts both the blank and the language-prior logits, with the prior's weight scaled by its own confidence.</p>
+    <div class="eq">d = (1 + &alpha;<sub>b</sub> + &alpha;<sub>l</sub>) logit p<sub>real</sub> &minus; &alpha;<sub>b</sub> logit p<sub>blank</sub> &minus; &alpha;<sub>l</sub> logit p<sub>lang</sub>, &nbsp;&nbsp; answer "yes" iff d &gt; 0</div>
+  </div>
+</section>
+
+<section id="results">
+  <div class="wrap">
+    <h2>Results</h2>
+    <p class="lede">Hover or focus any bar for its value. Each chart also has a table view.</p>
+    <div class="charts">
+      <div class="chart" id="cDuration"></div>
+      <div class="chart" id="cFlip"></div>
+      <div class="chart" id="cOracle"></div>
+      <div class="chart" id="cDecode"></div>
+    </div>
+
+    <div class="findings">
+      <div class="finding"><div class="big">0.613 vs 0.721<small>raw AUROC, localized vs. blank</small></div><p><b>Blank's raw advantage is a duration effect.</b> Blank silences the whole ~10 s clip; localized ablation removes 2-4 s. Fitting P(yes)-drop on the removed fraction using random windows only predicts blank's mean effect almost exactly, on both Qwen2-Audio (0.067 vs. 0.071) and AF3 (0.710 vs. 0.734).</p></div>
+      <div class="finding"><div class="big">p = 4.8e-46<small>matched duration, Qwen2-Audio</small></div><p><b>At matched duration, location matters.</b> Removing the CLAP window beats removing a random window of the same size in every grid cell, on both models. Pooled over cells, localized removal sits above the duration-only line (+0.014 on Qwen2-Audio, +0.096 on AF3) while random removal sits on it.</p></div>
+      <div class="finding"><div class="big">16.8 / 10.5 / 3.1%<small>oracle / CLAP / random flips</small></div><p><b>Localization error explains part of the gap, not all of it.</b> With synthetic events at known positions, removing the true window beats CLAP's guess, which beats random. Even the true window flips only 16.8% of claims, so Qwen2-Audio is partly location-insensitive.</p></div>
+      <div class="finding"><div class="big">+14.8 pts<small>Qwen2-Audio decoding accuracy</small></div><p><b>The same evidence corrects answers.</b> A language-prior contrast alone gives +11.1 points over raw decoding at &alpha; = 1, beating AAD (+7.5). Combining both, gating by prior confidence and averaging five prompt paraphrases reaches 71.9%.</p></div>
+      <div class="finding"><div class="big">-13.1 pts<small>AF3 &rarr; Qwen2-Audio transfer</small></div><p><b>There is no single grounding profile.</b> A detector trained on one model's causal signals loses to the other model's best fixed contrast. Qwen2.5-Omni follows Qwen2-Audio's pattern, not AF3's.</p></div>
+    </div>
+
+    <h3>Decoding strength sweep</h3>
+    <figure class="teaser">
+      <img src="assets/fig_cd_sweep.png" alt="Accuracy of contrastive decoding versus alpha for LangPrior-CD, AAD-CD, CAUSA-CD and the combined rule on Qwen2-Audio." style="max-width:520px">
+      <figcaption>Qwen2-Audio accuracy vs. contrast strength &alpha;. The combined AAD + LangPrior rule stays above every single contrast across the range; the dotted line marks the gated, paraphrase-averaged result.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section id="reproduce">
+  <div class="wrap">
+    <h2>Reproduce</h2>
+    <p class="lede">Every number above is produced by a script in the repository. Runners are resumable, and <a href="https://github.com/khalooei/CAUSA/blob/main/REPRODUCE.md">REPRODUCE.md</a> maps each table and figure to its command and output file.</p>
+<pre>git clone https://github.com/khalooei/CAUSA.git &amp;&amp; cd CAUSA
+pip install -e .
+
+# audit one claim
+python examples/necessity_demo.py --audio clip.wav --object laughter
+
+# full reproduction
+bash reproduce/00_data.sh
+bash reproduce/01_qwen2audio.sh   # GPU, resumable
+bash reproduce/02_af3.sh
+bash reproduce/03_qwen25omni.sh
+bash reproduce/05_analysis.sh     # all tables and statistics (CPU)</pre>
+  </div>
+</section>
+
+<section id="citation">
+  <div class="wrap">
+    <h2>Citation</h2>
+    <div class="bib">
+<pre id="bibtex">@inproceedings{khalooei2027causa,
+  title     = {Does Location Matter? {A} Black-Box Causal Audit Reveals
+               Model-Dependent Audio Grounding in {LALM} Hallucination},
+  author    = {Khalooei, Mohammad and Sabokrou, Mohammad},
+  booktitle = {IEEE International Conference on Acoustics, Speech and
+               Signal Processing (ICASSP)},
+  year      = {2027},
+  note      = {Under review}
+}</pre>
+      <button class="btn ghost copy" id="copyBib" type="button">Copy</button>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">Benchmarks: object-existence split of Kuan &amp; Lee (AudioCaps, ESC-50, VocalSound) and HalluAudio. Models: Qwen2-Audio-7B-Instruct, Audio Flamingo 3, Qwen2.5-Omni-7B, LAION-CLAP. Code released under the MIT License.</div>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ---------- theme ---------- */
+  var root = document.documentElement;
+  try { var saved = localStorage.getItem("causa-theme"); if (saved) root.setAttribute("data-theme", saved); } catch (e) {}
+  document.getElementById("themeToggle").addEventListener("click", function () {
+    var dark = getComputedStyle(root).colorScheme.indexOf("dark") >= 0;
+    var next = dark ? "light" : "dark";
+    root.setAttribute("data-theme", next);
+    try { localStorage.setItem("causa-theme", next); } catch (e) {}
+    renderCharts();
+  });
+  function css(name) { return getComputedStyle(root).getPropertyValue(name).trim(); }
+
+  /* ---------- copy bibtex ---------- */
+  document.getElementById("copyBib").addEventListener("click", function (ev) {
+    var t = document.getElementById("bibtex").textContent, b = ev.currentTarget;
+    function done() { b.textContent = "Copied"; setTimeout(function () { b.textContent = "Copy"; }, 1500); }
+    if (navigator.clipboard) navigator.clipboard.writeText(t).then(done, function () {});
+  });
+
+  /* ---------- charts ---------- */
+  var NS = "http://www.w3.org/2000/svg";
+  function el(tag, attrs, parent) {
+    var n = document.createElementNS(NS, tag);
+    for (var k in attrs) n.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(n);
+    return n;
+  }
+  function text(parent, x, y, str, cls, anchor) {
+    var t = el("text", { x: x, y: y, "class": cls, "text-anchor": anchor || "middle" }, parent);
+    t.textContent = str;
+    return t;
+  }
+  // bar with 4px rounded data end, square at the baseline
+  function barPath(x, y0, w, h, r) {
+    r = Math.min(r, w / 2, Math.abs(h));
+    if (h <= 0) return "";
+    var y = y0 - h;
+    return "M" + x + "," + y0 + "V" + (y + r) + "Q" + x + "," + y + " " + (x + r) + "," + y +
+           "H" + (x + w - r) + "Q" + (x + w) + "," + y + " " + (x + w) + "," + (y + r) + "V" + y0 + "Z";
+  }
+  function hbarPath(x0, y, len, h, r) {
+    r = Math.min(r, h / 2, len);
+    if (len <= 0) return "";
+    var x = x0 + len;
+    return "M" + x0 + "," + y + "H" + (x - r) + "Q" + x + "," + y + " " + x + "," + (y + r) +
+           "V" + (y + h - r) + "Q" + x + "," + (y + h) + " " + (x - r) + "," + (y + h) + "H" + x0 + "Z";
+  }
+
+  function frame(id, title, sub, legend) {
+    var box = document.getElementById(id);
+    box.textContent = "";
+    var head = document.createElement("div"); head.className = "head";
+    var hl = document.createElement("div");
+    var h = document.createElement("h4"); h.textContent = title; hl.appendChild(h);
+    var s = document.createElement("div"); s.className = "sub"; s.textContent = sub; hl.appendChild(s);
+    head.appendChild(hl);
+    box.appendChild(head);
+    if (legend && legend.length) {
+      var lg = document.createElement("div"); lg.className = "legend";
+      legend.forEach(function (it) {
+        var sp = document.createElement("span"), i = document.createElement("i");
+        if (it.dash) i.className = "dash"; else i.style.background = it.color;
+        sp.appendChild(i); sp.appendChild(document.createTextNode(it.label)); lg.appendChild(sp);
+      });
+      box.appendChild(lg);
+    }
+    var tip = document.createElement("div"); tip.className = "tip"; box.appendChild(tip);
+    return { box: box, head: head, tip: tip };
+  }
+
+  function attachTip(f, hitEl, barEl, value, label, color) {
+    function show(ev) {
+      f.box.classList.add("hovering"); barEl.classList.add("on");
+      f.tip.textContent = "";
+      var st = document.createElement("strong"); st.textContent = value; f.tip.appendChild(st);
+      var sp = document.createElement("span");
+      var k = document.createElement("i"); k.className = "k"; k.style.background = color;
+      sp.appendChild(k); sp.appendChild(document.createTextNode(label)); f.tip.appendChild(sp);
+      var br = f.box.getBoundingClientRect(), hr = hitEl.getBoundingClientRect();
+      var x = (ev && ev.clientX ? ev.clientX : hr.left + hr.width / 2) - br.left;
+      var y = hr.top - br.top;
+      f.tip.style.opacity = 1;
+      var tw = f.tip.offsetWidth;
+      f.tip.style.left = Math.max(4, Math.min(br.width - tw - 4, x - tw / 2)) + "px";
+      f.tip.style.top = Math.max(4, y - f.tip.offsetHeight - 8) + "px";
+    }
+    function hide() { f.box.classList.remove("hovering"); barEl.classList.remove("on"); f.tip.style.opacity = 0; }
+    hitEl.setAttribute("tabindex", "0");
+    hitEl.setAttribute("aria-label", label + ": " + value);
+    hitEl.addEventListener("pointermove", show);
+    hitEl.addEventListener("focus", show);
+    hitEl.addEventListener("pointerleave", hide);
+    hitEl.addEventListener("blur", hide);
+  }
+
+  function tableView(f, headers, rows) {
+    var d = document.createElement("details"); d.className = "table";
+    var s = document.createElement("summary"); s.textContent = "Table view"; d.appendChild(s);
+    var t = document.createElement("table"), tr = document.createElement("tr");
+    headers.forEach(function (h) { var th = document.createElement("th"); th.textContent = h; tr.appendChild(th); });
+    t.appendChild(tr);
+    rows.forEach(function (r) {
+      var row = document.createElement("tr");
+      r.forEach(function (c) { var td = document.createElement("td"); td.textContent = c; row.appendChild(td); });
+      t.appendChild(row);
+    });
+    d.appendChild(t); f.box.appendChild(d);
+  }
+
+  function segControl(f, options, current, onPick) {
+    var seg = document.createElement("span"); seg.className = "seg";
+    options.forEach(function (o) {
+      var b = document.createElement("button"); b.type = "button"; b.textContent = o.label;
+      b.setAttribute("aria-pressed", String(o.key === current));
+      b.addEventListener("click", function () { onPick(o.key); });
+      seg.appendChild(b);
+    });
+    f.head.appendChild(seg);
+  }
+
+  /* grouped vertical bars: groups[{label, values:[{key,label,v,color,fmt}]}] */
+  function groupedBars(f, groups, opt) {
+    var W = 420, H = 230, m = { l: 36, r: 8, t: 18, b: 34 };
+    var svg = el("svg", { viewBox: "0 0 " + W + " " + H, role: "img", "aria-label": opt.aria }, null);
+    f.box.insertBefore(svg, f.tip);
+    var iw = W - m.l - m.r, ih = H - m.t - m.b, y0 = m.t + ih;
+    var max = opt.max;
+    opt.ticks.forEach(function (tv) {
+      var y = y0 - tv / max * ih;
+      el("line", { x1: m.l, x2: W - m.r, y1: y, y2: y, "class": tv === 0 ? "baseline" : "gridline" }, svg);
+      text(svg, m.l - 6, y + 4, opt.tickFmt(tv), "axis-text", "end");
+    });
+    var gw = iw / groups.length, n = groups[0].values.length;
+    var bw = Math.min(42, (gw * 0.62) / n), gap = 2;
+    groups.forEach(function (g, gi) {
+      var cx = m.l + gw * gi + gw / 2, total = n * bw + (n - 1) * gap, x = cx - total / 2;
+      g.values.forEach(function (v, vi) {
+        var bx = x + vi * (bw + gap), h = v.v / max * ih;
+        var p = el("path", { d: barPath(bx, y0, bw, h, 4), fill: v.color, "class": "bar" }, svg);
+        if (v.outline) { p.setAttribute("fill", "none"); p.setAttribute("stroke", v.color); p.setAttribute("stroke-width", "2"); p.setAttribute("stroke-dasharray", "4 3"); p.setAttribute("d", barPath(bx + 1, y0, bw - 2, h - 1, 4)); }
+        if (opt.labelValues) text(svg, bx + bw / 2, y0 - h - 5, v.fmt, "val-text");
+        var hit = el("rect", { x: bx - 1, y: m.t, width: bw + 2, height: ih, "class": "hit" }, svg);
+        attachTip(f, hit, p, v.fmt, g.label + " · " + v.label, v.color);
+      });
+      text(svg, cx, y0 + 18, g.label, "cat-text");
+      if (g.sub) text(svg, cx, y0 + 31, g.sub, "axis-text");
+    });
+    return svg;
+  }
+
+  var state = { flipSetting: "4", durModel: "qwen" };
+
+  function renderCharts() {
+    var LOC = css("--s-loc"), RAND = css("--s-rand"), OR = css("--s-oracle"), NEU = css("--s-neutral");
+
+    /* 1. duration confound */
+    var D = {
+      qwen: { name: "Qwen2-Audio", pred: 0.067, blank: 0.071, loc: 0.041, rand: 0.016, max: 0.08, ticks: [0, 0.02, 0.04, 0.06, 0.08] },
+      af3:  { name: "Audio Flamingo 3", pred: 0.710, blank: 0.734, loc: 0.393, rand: 0.233, max: 0.8, ticks: [0, 0.2, 0.4, 0.6, 0.8] }
+    }[state.durModel];
+    var f1 = frame("cDuration", "Blank's edge is a duration effect",
+      "Mean P(yes) drop. 4 s / -100 dB windows vs. whole-clip blank.",
+      [{ label: "Localized (4 s)", color: LOC }, { label: "Random (4 s)", color: RAND }, { label: "Blank, observed", color: NEU }, { label: "Blank, predicted from duration", dash: true }]);
+    segControl(f1, [{ key: "qwen", label: "Qwen2-Audio" }, { key: "af3", label: "AF3" }], state.durModel,
+      function (k) { state.durModel = k; renderCharts(); });
+    var fmt3 = function (v) { return v.toFixed(3); };
+    groupedBars(f1, [
+      { label: "Same 4 s budget", values: [
+        { label: "Localized", v: D.loc, color: LOC, fmt: fmt3(D.loc) },
+        { label: "Random", v: D.rand, color: RAND, fmt: fmt3(D.rand) } ] },
+      { label: "Whole clip removed", values: [
+        { label: "Blank, observed", v: D.blank, color: NEU, fmt: fmt3(D.blank) },
+        { label: "Predicted from duration only", v: D.pred, color: NEU, outline: true, fmt: fmt3(D.pred) } ] }
+    ], { max: D.max, ticks: D.ticks, tickFmt: function (v) { return v.toFixed(2); }, labelValues: true,
+         aria: "Mean P(yes) drop for " + D.name });
+    tableView(f1, ["Condition", "Qwen2-Audio", "AF3"], [
+      ["Localized, 4 s / -100 dB", "0.041", "0.393"], ["Random, 4 s / -100 dB", "0.016", "0.233"],
+      ["Blank, observed", "0.071", "0.734"], ["Blank, predicted from duration", "0.067", "0.710"]]);
+
+    /* 2. flip rates by model */
+    var F = {
+      "4": [["Qwen2-Audio", 3.3, 2.2], ["Qwen2.5-Omni", 7.4, 3.9], ["AF3", 62.5, 41.5]],
+      "2": [["Qwen2-Audio", 1.0, 0.8], ["Qwen2.5-Omni", 1.5, 0.8], ["AF3", 26.0, 18.8]]
+    };
+    var f2 = frame("cFlip", "Dependence on evidence varies by model",
+      "True positives flipped to \"no\" (%).",
+      [{ label: "Localized", color: LOC }, { label: "Random", color: RAND }]);
+    segControl(f2, [{ key: "4", label: "4 s / -100 dB" }, { key: "2", label: "2 s / -40 dB" }], state.flipSetting,
+      function (k) { state.flipSetting = k; renderCharts(); });
+    var pct = function (v) { return v.toFixed(1) + "%"; };
+    groupedBars(f2, F[state.flipSetting].map(function (r) {
+      return { label: r[0], sub: "gap +" + (r[1] - r[2]).toFixed(1), values: [
+        { label: "Localized", v: r[1], color: LOC, fmt: pct(r[1]) },
+        { label: "Random", v: r[2], color: RAND, fmt: pct(r[2]) } ] };
+    }), { max: 70, ticks: [0, 20, 40, 60], tickFmt: function (v) { return v + "%"; }, labelValues: true,
+          aria: "Necessity flip rate by model" });
+    tableView(f2, ["Model", "Setting", "Localized", "Random"],
+      [].concat(F["4"].map(function (r) { return [r[0], "4 s / -100 dB", pct(r[1]), pct(r[2])]; }),
+                F["2"].map(function (r) { return [r[0], "2 s / -40 dB", pct(r[1]), pct(r[2])]; })));
+
+    /* 3. oracle control */
+    var f3 = frame("cOracle", "Oracle control: known event positions",
+      "608 synthetic Qwen2-Audio positives, -100 dB, matched size.",
+      [{ label: "Flip rate", color: NEU }]);
+    groupedBars(f3, [
+      { label: "True window", sub: "oracle", values: [{ label: "Flip rate", v: 16.8, color: OR, fmt: "16.8%" }] },
+      { label: "CLAP window", sub: "mean IoU 0.45", values: [{ label: "Flip rate", v: 10.5, color: LOC, fmt: "10.5%" }] },
+      { label: "Random window", sub: "control", values: [{ label: "Flip rate", v: 3.1, color: RAND, fmt: "3.1%" }] }
+    ], { max: 20, ticks: [0, 5, 10, 15, 20], tickFmt: function (v) { return v + "%"; }, labelValues: true,
+         aria: "Oracle localization control flip rates" });
+    f3.box.querySelector(".legend").remove();
+    tableView(f3, ["Window", "Flip rate", "Mean P(yes) drop"],
+      [["True (oracle)", "16.8%", "0.126"], ["CLAP", "10.5%", "0.079"], ["Random", "3.1%", "0.016"]]);
+
+    /* 4. decoding accuracy, horizontal bars */
+    var rows = [["CAUSA-CD (localized)", 59.6], ["AAD-CD (blank)", 64.7], ["LangPrior-CD", 68.2],
+                ["AAD + LangPrior", 70.0], ["+ confidence gating", 71.4], ["+ paraphrase prior", 71.9]];
+    var f4 = frame("cDecode", "Correcting answers at decoding time",
+      "Qwen2-Audio accuracy on its own \"yes\" answers, alpha = 1.",
+      [{ label: "Accuracy", color: LOC }, { label: "Raw decoding, 57.1%", dash: true }]);
+    var W = 420, H = 230, m = { l: 132, r: 44, t: 6, b: 24 };
+    var svg = el("svg", { viewBox: "0 0 " + W + " " + H, role: "img", "aria-label": "Decoding accuracy by contrast" }, null);
+    f4.box.insertBefore(svg, f4.tip);
+    var lo = 50, hi = 75, iw = W - m.l - m.r, rh = (H - m.t - m.b) / rows.length, bh = Math.min(20, rh - 6);
+    var xs = function (v) { return m.l + (v - lo) / (hi - lo) * iw; };
+    [50, 55, 60, 65, 70, 75].forEach(function (tv) {
+      el("line", { x1: xs(tv), x2: xs(tv), y1: m.t, y2: H - m.b, "class": tv === lo ? "baseline" : "gridline" }, svg);
+      text(svg, xs(tv), H - m.b + 15, tv + "%", "axis-text");
+    });
+    rows.forEach(function (r, i) {
+      var y = m.t + i * rh + (rh - bh) / 2;
+      var p = el("path", { d: hbarPath(m.l, y, xs(r[1]) - m.l, bh, 4), fill: LOC, "class": "bar" }, svg);
+      text(svg, m.l - 8, y + bh / 2 + 4, r[0], "cat-text", "end");
+      text(svg, xs(r[1]) + 6, y + bh / 2 + 4, r[1].toFixed(1) + "%", "val-text", "start");
+      var hit = el("rect", { x: 0, y: m.t + i * rh, width: W, height: rh, "class": "hit" }, svg);
+      attachTip(f4, hit, p, r[1].toFixed(1) + "%  (+" + (r[1] - 57.1).toFixed(1) + " pts)", r[0], LOC);
+    });
+    el("line", { x1: xs(57.1), x2: xs(57.1), y1: m.t, y2: H - m.b, stroke: css("--muted"), "stroke-width": 1.5, "stroke-dasharray": "4 3" }, svg);
+    tableView(f4, ["Contrast", "Accuracy", "Gain over raw"], rows.map(function (r) {
+      return [r[0], r[1].toFixed(1) + "%", "+" + (r[1] - 57.1).toFixed(1)]; }));
+  }
+  renderCharts();
+  if (window.matchMedia) {
+    var mq = window.matchMedia("(prefers-color-scheme: dark)");
+    if (mq.addEventListener) mq.addEventListener("change", renderCharts);
+  }
+
+  /* ---------- in-browser intervention demo ---------- */
+  var SR = 16000, FADE = 0.05;
+  var audio = null, dur = 0, depthDb = -100, winSec = 4, selStart = null, randStart = null;
+  var ctx = null, current = null;
+  var canvas = document.getElementById("spec"), c2d = canvas.getContext("2d");
+  var wrap = document.getElementById("specWrap"), label = document.getElementById("specLabel");
+  var selLoc = document.getElementById("selLoc"), selRand = document.getElementById("selRand");
+  var players = document.querySelectorAll(".play[data-k]"), reroll = document.getElementById("reroll");
+
+  function ac() { if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)(); return ctx; }
+
+  function fft(re, im) {
+    var n = re.length;
+    for (var i = 1, j = 0; i < n; i++) {
+      var bit = n >> 1;
+      for (; j & bit; bit >>= 1) j ^= bit;
+      j ^= bit;
+      if (i < j) { var t = re[i]; re[i] = re[j]; re[j] = t; t = im[i]; im[i] = im[j]; im[j] = t; }
+    }
+    for (var len = 2; len <= n; len <<= 1) {
+      var ang = -2 * Math.PI / len, wr = Math.cos(ang), wi = Math.sin(ang);
+      for (var s = 0; s < n; s += len) {
+        var cr = 1, ci = 0;
+        for (var k = 0; k < len / 2; k++) {
+          var a = s + k, b = a + len / 2;
+          var tr = re[b] * cr - im[b] * ci, ti = re[b] * ci + im[b] * cr;
+          re[b] = re[a] - tr; im[b] = im[a] - ti; re[a] += tr; im[a] += ti;
+          var nr = cr * wr - ci * wi; ci = cr * wi + ci * wr; cr = nr;
+        }
+      }
+    }
+  }
+
+  var MAGMA = [[0,0,4],[28,16,68],[79,18,123],[129,37,129],[181,54,122],[229,80,100],[251,135,97],[254,194,135],[252,253,191]];
+  function cmap(t) {
+    t = Math.max(0, Math.min(1, t)) * (MAGMA.length - 1);
+    var i = Math.floor(t), f = t - i, a = MAGMA[i], b = MAGMA[Math.min(i + 1, MAGMA.length - 1)];
+    return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f];
+  }
+
+  function drawSpec(x) {
+    var N = 512, hop = 128, frames = Math.max(1, Math.floor((x.length - N) / hop) + 1);
+    var maxBin = Math.floor(4000 / (SR / N)); // show 0-4 kHz, as in the paper figure
+    var W = canvas.width, H = canvas.height, img = c2d.createImageData(W, H);
+    var win = new Float32Array(N); for (var i = 0; i < N; i++) win[i] = 0.5 - 0.5 * Math.cos(2 * Math.PI * i / N);
+    var cols = [], peak = -Infinity;
+    var re = new Float32Array(N), im = new Float32Array(N);
+    var step = frames / W;
+    for (var c = 0; c < W; c++) {
+      var f0 = Math.floor(c * step) * hop;
+      for (i = 0; i < N; i++) { re[i] = (x[f0 + i] || 0) * win[i]; im[i] = 0; }
+      fft(re, im);
+      var col = new Float32Array(maxBin);
+      for (var k = 0; k < maxBin; k++) { var v = 10 * Math.log10(re[k] * re[k] + im[k] * im[k] + 1e-12); col[k] = v; if (v > peak) peak = v; }
+      cols.push(col);
+    }
+    for (c = 0; c < W; c++) for (var y = 0; y < H; y++) {
+      var kk = Math.floor((H - 1 - y) / H * maxBin), db = cols[c][kk] - peak;
+      var rgb = cmap((db + 80) / 80), o = (y * W + c) * 4;
+      img.data[o] = rgb[0]; img.data[o + 1] = rgb[1]; img.data[o + 2] = rgb[2]; img.data[o + 3] = 255;
+    }
+    c2d.putImageData(img, 0, 0);
+  }
+
+  // per-sample gain matching spectral_gate_remove: target gain inside, raised edges outside
+  function gate(x, t0, t1) {
+    var y = new Float32Array(x), g = Math.pow(10, depthDb / 20), nf = Math.round(FADE * SR);
+    var a = Math.round(t0 * SR), b = Math.min(x.length, Math.round(t1 * SR));
+    for (var i = a; i < b; i++) y[i] = x[i] * g;
+    for (var k = 1; k <= nf; k++) {
+      // gain rises from the target level back to 1 over FADE seconds on both sides
+      var gain = g + (1 - g) * (0.5 - 0.5 * Math.cos(Math.PI * k / (nf + 1)));
+      if (a - k >= 0) y[a - k] = x[a - k] * gain;
+      if (b - 1 + k < x.length) y[b - 1 + k] = x[b - 1 + k] * gain;
+    }
+    return y;
+  }
+
+  function placeBox(div, t0) {
+    if (t0 === null) { div.style.display = "none"; return; }
+    var w = Math.min(winSec, dur);
+    div.style.display = "block";
+    div.style.left = (t0 / dur * 100) + "%";
+    div.style.width = (w / dur * 100) + "%";
+  }
+  function newRandom() {
+    var w = Math.min(winSec, dur);
+    randStart = Math.random() * Math.max(0, dur - w);
+    placeBox(selRand, randStart);
+  }
+  function setSel(t) {
+    var w = Math.min(winSec, dur);
+    selStart = Math.max(0, Math.min(dur - w, t - w / 2));
+    placeBox(selLoc, selStart);
+  }
+
+  function load(x) {
+    stop();
+    audio = x; dur = x.length / SR;
+    drawSpec(x);
+    label.textContent = "Drag to choose the region to remove";
+    document.getElementById("specAxis").innerHTML = "";
+    for (var s = 0; s <= 4; s++) {
+      var sp = document.createElement("span"); sp.textContent = (dur * s / 4).toFixed(1) + " s";
+      document.getElementById("specAxis").appendChild(sp);
+    }
+    setSel(dur * 0.6); newRandom();
+    players.forEach(function (b) { b.disabled = false; });
+    reroll.disabled = false;
+  }
+
+  function synth() {
+    // synthetic 10 s example: pink-ish noise plus three tonal events
+    var n = 10 * SR, x = new Float32Array(n), b0 = 0, b1 = 0, b2 = 0, seed = 7;
+    function rnd() { seed = (seed * 16807) % 2147483647; return seed / 2147483647 * 2 - 1; }
+    for (var i = 0; i < n; i++) {
+      var w = rnd(); b0 = 0.99765 * b0 + w * 0.099; b1 = 0.963 * b1 + w * 0.2965; b2 = 0.57 * b2 + w * 1.0527;
+      x[i] = (b0 + b1 + b2 + w * 0.1848) * 0.02;
+    }
+    function ev(t0, t1, f0, f1, amp, rate) {
+      var ph = 0;
+      for (var i = Math.round(t0 * SR); i < Math.round(t1 * SR); i++) {
+        var u = (i / SR - t0) / (t1 - t0), env = Math.sin(Math.PI * u) * (rate ? 0.5 + 0.5 * Math.sin(2 * Math.PI * rate * i / SR) : 1);
+        ph += 2 * Math.PI * (f0 + (f1 - f0) * u) / SR;
+        x[i] += amp * env * (Math.sin(ph) + 0.4 * Math.sin(2 * ph) + 0.2 * Math.sin(3 * ph));
+      }
+    }
+    ev(1.0, 2.2, 300, 520, 0.12, 0);
+    ev(3.0, 5.6, 700, 650, 0.08, 6);
+    ev(6.2, 7.8, 450, 900, 0.15, 9);
+    return x;
+  }
+
+  function decodeFile(file) {
+    var r = new FileReader();
+    r.onload = function () {
+      ac().decodeAudioData(r.result.slice(0), function (buf) {
+        var len = Math.min(Math.ceil(buf.duration * SR), 30 * SR);
+        var off = new OfflineAudioContext(1, len, SR), src = off.createBufferSource();
+        src.buffer = buf; src.connect(off.destination); src.start();
+        off.startRendering().then(function (out) { load(new Float32Array(out.getChannelData(0))); });
+      }, function () { label.textContent = "Could not decode this file"; });
+    };
+    r.readAsArrayBuffer(file);
+  }
+
+  function stop() {
+    if (current) { try { current.stop(); } catch (e) {} current = null; }
+    players.forEach(function (b) { b.classList.remove("playing"); });
+  }
+  function play(kind, btn) {
+    if (!audio) return;
+    var was = btn.classList.contains("playing");
+    stop();
+    if (was) return;
+    var x = kind === "orig" ? audio : gate(audio, kind === "loc" ? selStart : randStart, (kind === "loc" ? selStart : randStart) + Math.min(winSec, dur));
+    var c = ac(), buf = c.createBuffer(1, x.length, SR);
+    buf.copyToChannel ? buf.copyToChannel(x, 0) : buf.getChannelData(0).set(x);
+    var src = c.createBufferSource(); src.buffer = buf; src.connect(c.destination);
+    src.onended = function () { btn.classList.remove("playing"); if (current === src) current = null; };
+    src.start(); current = src; btn.classList.add("playing");
+  }
+
+  players.forEach(function (b) { b.addEventListener("click", function () { play(b.getAttribute("data-k"), b); }); });
+  reroll.addEventListener("click", newRandom);
+  document.getElementById("loadSample").addEventListener("click", function () { load(synth()); });
+  document.getElementById("fileIn").addEventListener("change", function (e) { if (e.target.files[0]) decodeFile(e.target.files[0]); });
+
+  function pickSeg(id, cb) {
+    var seg = document.getElementById(id);
+    seg.addEventListener("click", function (e) {
+      var b = e.target.closest("button"); if (!b) return;
+      seg.querySelectorAll("button").forEach(function (x) { x.setAttribute("aria-pressed", String(x === b)); });
+      cb(parseFloat(b.getAttribute("data-v")));
+    });
+  }
+  pickSeg("depthSeg", function (v) { depthDb = v; stop(); });
+  pickSeg("winSeg", function (v) {
+    winSec = v; stop();
+    if (audio) { setSel(selStart + winSec / 4); newRandom(); }
+  });
+
+  var dragging = false;
+  function tAt(ev) { var r = canvas.getBoundingClientRect(); return (ev.clientX - r.left) / r.width * dur; }
+  wrap.addEventListener("pointerdown", function (e) { if (!audio) return; dragging = true; wrap.setPointerCapture(e.pointerId); stop(); setSel(tAt(e)); });
+  wrap.addEventListener("pointermove", function (e) { if (dragging) setSel(tAt(e)); });
+  wrap.addEventListener("pointerup", function () { dragging = false; });
+})();
+</script>
+</body>
+</html>
