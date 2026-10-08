@@ -83,7 +83,7 @@ def localization_quality_check(necessity_rows: list[dict]) -> dict:
     matched (window_sec, attenuation_db) settings, compares the necessity
     flip rate (on true-positive claims) between the CLAP-localized window
     and a random same-size control window. If localized doesn't clearly
-    beat random, the bottleneck is not localization quality — it's that
+    beat random, the bottleneck is not localization quality - it's that
     the model's claim doesn't depend much on any single small window.
     """
     tp_rows = [r for r in necessity_rows if not r["is_hallucination"] and "grid" in r]

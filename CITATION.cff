@@ -1,0 +1,22 @@
+cff-version: 1.2.0
+message: "If you use this code, please cite the paper below."
+title: "CAUSA: black-box causal audit of audio grounding in LALM hallucination"
+authors:
+  - family-names: Khalooei
+    given-names: Mohammad
+    affiliation: Sharif University of Technology
+  - family-names: Sabokrou
+    given-names: Mohammad
+    affiliation: New Uzbekistan University; Okinawa Institute of Science and Technology
+repository-code: "https://github.com/khalooei/causa"
+license: MIT
+preferred-citation:
+  type: conference-paper
+  title: "Does Location Matter? A Black-Box Causal Audit Reveals Model-Dependent Audio Grounding in LALM Hallucination"
+  authors:
+    - family-names: Khalooei
+      given-names: Mohammad
+    - family-names: Sabokrou
+      given-names: Mohammad
+  collection-title: "Submitted to IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP 2027)"
+  year: 2027

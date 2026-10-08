@@ -26,10 +26,10 @@ variables: `PY` (interpreter), `SEED` (default `42`), `AUDIO`,
 | `00_data.sh` | BEAF audio (~2 GB) + HalluAudio (517 clips) | network | minutes |
 | `01_qwen2audio.sh` | main grid (n = 5000), adaptive search, oracle, priors, substitution | 1 GPU, 32 GB | ~12 h |
 | `02_af3.sh` | main grid over the full benchmark (n = 10,800), adaptive search, prior | 1 GPU, 32 GB | a few hours |
-| `03_qwen25omni.sh` | main grid (n = 2000), prior | 1 GPU, 32 GB | — |
-| `04_halluaudio.sh` | Qwen2-Audio and AF3 on HalluAudio (n = 517) | 1 GPU, 32 GB | — |
+| `03_qwen25omni.sh` | main grid (n = 2000), prior | 1 GPU, 32 GB | - |
+| `04_halluaudio.sh` | Qwen2-Audio and AF3 on HalluAudio (n = 517) | 1 GPU, 32 GB | - |
 | `05_analysis.sh` | all statistics, tables and decoding results | CPU | minutes |
-| `06_supplementary.sh` | analyses not in the paper | CPU + GPU | — |
+| `06_supplementary.sh` | analyses not in the paper | CPU + GPU | - |
 | `07_paper.sh` | Fig. 1 and `paper/main.pdf` | CPU + LaTeX | seconds |
 
 Only one model is loaded at a time. Model weights are downloaded from the
@@ -60,7 +60,7 @@ full-benchmark run is the faster of the two.
 | Table 3 (single contrasts), Fig. 1 | 05, 07 | `run_contrastive_decoding.py`, `paper/make_figures.py` | `*/contrastive_decoding.json`, `paper/fig_cd_sweep.pdf` |
 | Table 3 (AAD+LangPrior), fix/break rates, CV | 05 | `analyze_decoding_strengths.py` | `*/decoding_strengths.json` |
 | Table 3 (+ gated, + ensemble prior) | 01, 05 | `run_language_prior_ensemble.py`, `analyze_gated_decoding.py` | `Q/gated_decoding.json` |
-| Table 4: localized vs. random flip rates, three models | 01–03 | `run_experiment.py` | `{Q,O,A}/report.json` |
+| Table 4: localized vs. random flip rates, three models | 01-03 | `run_experiment.py` | `{Q,O,A}/report.json` |
 | Sec. 5.6: Qwen2.5-Omni AUROC and decoding gains | 03, 05 | `run_experiment.py`, `analyze_decoding_strengths.py` | `O/report.json`, `O/decoding_strengths.json` |
 | Sec. 5.7: in-distribution profile and cross-model transfer | 05 | `analyze_causal_grounding_profile.py`, `analyze_cross_model_transfer.py` | `outputs/cross_model_transfer.json` |
 | Sec. 6: HalluAudio matched-duration effect and combined decoding | 04 | `analyze_duration_confound.py`, `analyze_decoding_strengths.py` | `outputs/halluaudio_qwen2audio/*.json` |
@@ -68,7 +68,7 @@ full-benchmark run is the faster of the two.
 
 ## Building the paper
 
-`07_paper.sh` runs the standard `pdflatex` → `bibtex` → `pdflatex` ×2
+`07_paper.sh` runs the standard `pdflatex`, `bibtex`, `pdflatex`, `pdflatex`
 cycle with the official ICASSP 2027 template (`spconf.sty`,
 `IEEEbib.bst`, included). The result must be five pages, with the fifth
 holding only references.
