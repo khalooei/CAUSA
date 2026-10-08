@@ -1,34 +1,51 @@
-# CAUSA: Causal Audio Grounding via Ablation
+<div align="center">
 
-Code for the paper **"Does Location Matter? A Black-Box Causal Audit Reveals
-Model-Dependent Audio Grounding in LALM Hallucination"** by Mohammad Khalooei
-(Sharif University of Technology) and Mohammad Sabokrou (New Uzbekistan
-University; Okinawa Institute of Science and Technology).
+# Does Location Matter?
 
-[Project page](https://khalooei.github.io/CAUSA/) | [Paper PDF](paper/main.pdf) | [Reproduction guide](REPRODUCE.md)
+### A Black-Box Causal Audit Reveals Model-Dependent Audio Grounding in LALM Hallucination
+
+[Mohammad Khalooei](https://github.com/khalooei)<sup>1</sup>, Mohammad Sabokrou<sup>2,3</sup>
+
+<sup>1</sup>Sharif University of Technology, <sup>2</sup>New Uzbekistan University, <sup>3</sup>Okinawa Institute of Science and Technology
+
+[![Project Page](https://img.shields.io/badge/Project-Page-2a78d6)](https://khalooei.github.io/CAUSA/)
+[![Paper](https://img.shields.io/badge/Paper-PDF-b31b1b)](paper/main.pdf)
+[![ICASSP 2027](https://img.shields.io/badge/ICASSP-2027%20%28under%20review%29-4a3aa7)](#citation)
+[![License: MIT](https://img.shields.io/badge/License-MIT-1baf7a)](LICENSE)
+
+<img src="assets/fig_illustration.png" width="640" alt="Removing the CLAP-localized window from a real clip">
+
+<em>A correct "laughter" claim from Qwen2-Audio. Removing the CLAP-localized window (cyan)
+drops P(yes) from 0.905 to 0.133 and flips the answer; removing a random window of the
+same length (white, dashed) does not.</em>
+
+</div>
+
+## News
+
+- **2026-10**: Code, reproduction scripts and the [project page](https://khalooei.github.io/CAUSA/) are released.
+- **2026-09**: Paper submitted to ICASSP 2027.
+
+## Overview
 
 Large audio-language models (LALMs) often say a sound is present when it is
-not. Audio-Aware Decoding (AAD), the usual inference-time fix, contrasts
-the model's answer on the real clip with its answer on an all-zero
-waveform. Silence is out-of-distribution for the audio encoder, though, so
-this contrast confounds "the evidence is absent" with "the input is
-malformed".
+not. Audio-Aware Decoding (AAD), the usual inference-time fix, contrasts the
+model's answer on the real clip with its answer on an all-zero waveform.
+Silence is out-of-distribution for the audio encoder, though, so this
+contrast confounds "the evidence is absent" with "the input is malformed".
 
-We instead remove only the part of the recording a claim should rely on
-(found with CLAP), keep the rest of the clip intact, and check whether the
-model changes its answer, and whether it changes it more than when an
-equally long random part is removed. The test only needs waveforms in and
-yes/no probabilities out, so it works on any LALM without training or
+**CAUSA** (Causal Audio Grounding via Ablation) removes only the part of the
+recording a claim should rely on, keeps the rest of the clip intact, and asks
+whether the model changes its answer, and whether it changes it more than
+when an equally long random part is removed. The test needs only waveforms in
+and yes/no probabilities out, so it applies to any LALM without training or
 access to model internals.
 
-![Localized spectral-gate ablation on a real clip](assets/fig_illustration.png)
+<p align="center">
+  <img src="assets/overview.svg" width="900" alt="CAUSA overview: localize the evidence with CLAP, apply four interventions, score each with one LALM forward pass, then detect ungrounded claims or correct them by contrastive decoding">
+</p>
 
-*Example: a correct "laughter" claim from Qwen2-Audio. Removing the
-CLAP-localized window (cyan) drops P(yes) from 0.905 to 0.133 and flips
-the answer; removing a random window of the same size (white, dashed) does
-not.*
-
-## Main results
+## Highlights
 
 - Localized ablation has a lower raw AUROC than blank audio on Qwen2-Audio
   (0.613 vs. 0.721, n = 4355), but this is a duration effect: blank removes
@@ -81,6 +98,14 @@ combined rule adds the blank and language-prior contrasts. The prior's
 weight is scaled per example by its own confidence `p_lang`.
 
 ## Results
+
+Explore every result interactively, and try the intervention on your own
+audio in the browser, on the [project page](https://khalooei.github.io/CAUSA/).
+
+<p align="center">
+  <a href="https://khalooei.github.io/CAUSA/"><img src="assets/project_page.png" width="820" alt="Interactive results on the project page"></a>
+</p>
+
 
 Hallucination detection, Qwen2-Audio-7B-Instruct (n = 4355; 1867 hallucinated)
 
@@ -268,6 +293,13 @@ Each dataset and model is subject to its own license.
   note      = {Under review}
 }
 ```
+
+## Acknowledgements
+
+We thank the authors of the object-existence hallucination benchmark
+(Kuan and Lee), HalluAudio, AudioCaps, ESC-50 and VocalSound for releasing
+their data, and the teams behind Qwen2-Audio, Qwen2.5-Omni, Audio Flamingo 3
+and LAION-CLAP for releasing their models.
 
 ## License
 
