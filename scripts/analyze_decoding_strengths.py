@@ -3,10 +3,12 @@
 From stored logits (no new model calls):
 
   1. per-contrast confusion breakdown: hallucinations fixed vs. correct
-     claims broken;
+     claims broken, and for LangPrior-CD the same per object class
+     (classes with at least --min-class-n examples);
   2. combined AAD + LangPrior decoding,
         d = (1 + a_b + a_l) logit(p_real) - a_b logit(p_blank) - a_l logit(p_lang),
-     at a_b = a_l = 1, its swept optimum, and 5-fold CV over (a_b, a_l).
+     at a_b = a_l = 1 and its swept optimum over (a_b, a_l) in [0, 3].
+     Cross-validated versions are in `analyze_gated_decoding.py`.
 
 Usage:
     python scripts/analyze_decoding_strengths.py \
@@ -48,12 +50,38 @@ def confusion_breakdown(p_real, p_contrast, gt_is_yes, alpha=1.0):
     }
 
 
+def per_class_breakdown(objects, p_real, p_contrast, gt_is_yes, min_n, alpha=1.0):
+    """Fix/break counts of one contrast within each object class."""
+    pred_after = cd_predict(p_real, p_contrast, alpha)
+    changed = pred_after != (p_real > 0.5)
+    classes = {}
+    for obj in sorted(set(objects)):
+        m = objects == obj
+        if m.sum() < min_n:
+            continue
+        fixed = int((changed & m & ~gt_is_yes).sum())
+        broken = int((changed & m & gt_is_yes).sum())
+        classes[obj] = {"n": int(m.sum()), "fixed": fixed, "broken": broken, "net": fixed - broken}
+    nets = [c["net"] for c in classes.values()]
+    return {
+        "min_class_n": min_n,
+        "n_classes": len(classes),
+        "n_improved": sum(v > 0 for v in nets),
+        "n_worsened": sum(v < 0 for v in nets),
+        "n_unchanged": sum(v == 0 for v in nets),
+        "worst_class": min(classes, key=lambda k: classes[k]["net"]) if classes else None,
+        "classes": classes,
+    }
+
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--necessity", required=True)
     p.add_argument("--language-prior", required=True)
     p.add_argument("--model-name", required=True)
     p.add_argument("--out", required=True)
+    p.add_argument("--min-class-n", type=int, default=15,
+                   help="minimum examples per object class for the per-class breakdown")
     args = p.parse_args()
 
     rows = [json.loads(l) for l in open(args.necessity) if not json.loads(l).get("skipped")]
@@ -65,6 +93,7 @@ def main():
     p_causa = np.array([r["grid"]["loc_w4.0_d-100"]["p_yes_after"] for r in rows])
     p_lang = np.array([lang_prior[r["object_name"]]["p_yes_text_only"] for r in rows])
     gt_is_yes = np.array([not r["is_hallucination"] for r in rows])
+    objects = np.array([r["object_name"] for r in rows])
     n = len(rows)
 
     result = {"model": args.model_name, "n": n, "raw_accuracy": float(gt_is_yes.mean())}
@@ -105,10 +134,15 @@ def main():
         "LangPrior-CD": confusion_breakdown(p_real, p_lang, gt_is_yes),
         "CAUSA-CD (localized)": confusion_breakdown(p_real, p_causa, gt_is_yes),
     }
+    result["langprior_cd_per_class_alpha1"] = per_class_breakdown(
+        objects, p_real, p_lang, gt_is_yes, args.min_class_n)
 
     with open(args.out, "w") as f:
         json.dump(result, f, indent=2)
-    print(json.dumps({k: v for k, v in result.items() if k != "multi_contrast_decoding"}, indent=2))
+    summary = {k: v for k, v in result.items() if k not in ("multi_contrast_decoding", "langprior_cd_per_class_alpha1")}
+    summary["langprior_cd_per_class_alpha1"] = {
+        k: v for k, v in result["langprior_cd_per_class_alpha1"].items() if k != "classes"}
+    print(json.dumps(summary, indent=2))
     print(json.dumps({"multi_contrast_decoding": {k: v for k, v in result["multi_contrast_decoding"].items() if k != "grid"}}, indent=2))
     print(f"\nwrote {args.out}")
 

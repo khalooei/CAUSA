@@ -58,8 +58,8 @@ full-benchmark run is the faster of the two.
 | Table 2: oracle / CLAP / random flip rates, IoU | 01, 05 | `run_oracle_localization.py`, `analyze_oracle_localization.py` | `outputs/oracle_qwen2audio/report.json` |
 | Sec. 5.4: language prior, Δ detector, 3/4-feature ensembles, CIs | 01, 05 | `run_language_prior.py`, `run_substitution_test.py`, `analyze_language_prior_correction.py` | `Q/language_prior_correction.json` |
 | Table 3 (single contrasts), Fig. 1 | 05, 07 | `run_contrastive_decoding.py`, `paper/make_figures.py` | `*/contrastive_decoding.json`, `paper/fig_cd_sweep.pdf` |
-| Table 3 (AAD+LangPrior), fix/break rates, CV | 05 | `analyze_decoding_strengths.py` | `*/decoding_strengths.json` |
-| Table 3 (+ gated, + ensemble prior) | 01, 05 | `run_language_prior_ensemble.py`, `analyze_gated_decoding.py` | `Q/gated_decoding.json` |
+| Table 3 (AAD+LangPrior), fix/break rates, per-class gains (42 of 48 classes) | 05 | `analyze_decoding_strengths.py` | `*/decoding_strengths.json` |
+| Table 3 (+ gated, + ensemble prior); flat-weight CV; gated-vs-flat and ensemble-vs-single paired tests | 01, 05 | `run_language_prior_ensemble.py`, `analyze_gated_decoding.py` | `Q/gated_decoding.json` |
 | Table 4: localized vs. random flip rates, three models | 01-03 | `run_experiment.py` | `{Q,O,A}/report.json` |
 | Sec. 5.6: Qwen2.5-Omni AUROC and decoding gains | 03, 05 | `run_experiment.py`, `analyze_decoding_strengths.py` | `O/report.json`, `O/decoding_strengths.json` |
 | Sec. 5.7: in-distribution profile and cross-model transfer | 05 | `analyze_causal_grounding_profile.py`, `analyze_cross_model_transfer.py` | `outputs/cross_model_transfer.json` |

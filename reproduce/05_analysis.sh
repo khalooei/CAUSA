@@ -40,6 +40,7 @@ for M in qwen2audio af3 qwen25omni; do
 done
 $PY scripts/analyze_gated_decoding.py --necessity "$Q/necessity.jsonl" \
     --language-prior "$OUT/language_prior_ensemble_qwen2audio.json" \
+    --language-prior-single "$OUT/language_prior_qwen2audio.json" \
     --model-name qwen2audio --out "$Q/gated_decoding.json"
 
 step "Sec. 3.6 / 5.7: causal grounding profile and cross-model transfer"

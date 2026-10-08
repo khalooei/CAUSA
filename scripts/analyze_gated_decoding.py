@@ -7,14 +7,19 @@ The LangPrior weight is scaled per example by the prior's own confidence
 p_lang. (a_b, a_l) are grid-searched on each training fold and applied to
 the held-out fold (5-fold CV, 20 repeats); gated vs. flat weighting is
 compared with a paired t-test over matched splits. Also evaluates a
-CLAP-similarity gate on the blank contrast. Pass the paraphrase-averaged
-prior from `run_language_prior_ensemble.py` for the "+ ensemble prior"
-row of Table 3.
+CLAP-similarity gate on the blank contrast.
+
+Pass the paraphrase-averaged prior from `run_language_prior_ensemble.py`
+as --language-prior (Table 3, "+ ensemble prior") and, optionally, the
+single-prompt prior as --language-prior-single to also compute the flat
+and gated single-prompt rows, the gated-vs-flat test, and the
+ensemble-vs-single paired comparison.
 
 Usage:
     python scripts/analyze_gated_decoding.py \
         --necessity outputs/qwen2audio/necessity.jsonl \
         --language-prior outputs/language_prior_ensemble_qwen2audio.json \
+        --language-prior-single outputs/language_prior_qwen2audio.json \
         --model-name qwen2audio --out outputs/qwen2audio/gated_decoding.json
 """
 import argparse
@@ -34,6 +39,11 @@ def clap_normalized(clap_sim):
     usable per-example gate on the same scale as p_lang."""
     lo, hi = clap_sim.min(), clap_sim.max()
     return (clap_sim - lo) / max(1e-9, hi - lo)
+
+
+def decode_flat(p_real, p_blank, p_lang, gt_is_yes, alpha_blank, alpha_lang):
+    d = (1 + alpha_blank + alpha_lang) * logit(p_real) - alpha_blank * logit(p_blank) - alpha_lang * logit(p_lang)
+    return (d > 0)
 
 
 def decode_baseline(p_real, p_blank, p_lang, gt_is_yes, alpha_blank, alpha_lang):
@@ -82,17 +92,36 @@ def paired_ttest_win_rate(accs_a, accs_b):
     return float(t), float(p), win_rate
 
 
+def paired_summary(accs_a, accs_b, n_splits=5):
+    """Paired comparison over identical splits, per fold and per repeat
+    (fold accuracies averaged within each CV repeat)."""
+    t, pval, win_fold = paired_ttest_win_rate(accs_a, accs_b)
+    rep_a = np.array(accs_a).reshape(-1, n_splits).mean(axis=1)
+    rep_b = np.array(accs_b).reshape(-1, n_splits).mean(axis=1)
+    return {
+        "t_stat": t, "p_value": pval,
+        "win_rate_per_fold": win_fold,
+        "win_rate_per_repeat": float((rep_a > rep_b).mean()),
+        "delta_mean": float(np.mean(accs_a) - np.mean(accs_b)),
+    }
+
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--necessity", required=True)
     p.add_argument("--language-prior", required=True)
+    p.add_argument("--language-prior-single", default=None,
+                   help="optional single-prompt prior (run_language_prior.py) to compare against "
+                        "the paraphrase-averaged prior passed as --language-prior")
     p.add_argument("--model-name", required=True)
     p.add_argument("--out", required=True)
     args = p.parse_args()
 
     rows = [json.loads(l) for l in open(args.necessity) if not json.loads(l).get("skipped")]
     lang_prior = json.load(open(args.language_prior))
-    rows = [r for r in rows if r["object_name"] in lang_prior]
+    single_prior = json.load(open(args.language_prior_single)) if args.language_prior_single else None
+    rows = [r for r in rows if r["object_name"] in lang_prior
+            and (single_prior is None or r["object_name"] in single_prior)]
 
     p_real = np.array([r["p_yes_before"] for r in rows])
     p_blank = np.array([r["p_yes_after_blank"] for r in rows])
@@ -116,6 +145,9 @@ def main():
 
     t, pval, win_rate = paired_ttest_win_rate(clap_accs, base_accs)
 
+    flat_mean, flat_std, flat_accs, _ = grid_search_cv(
+        decode_flat, (p_real, p_blank, p_lang), gt_is_yes, alphas)
+
     result = {
         "model": args.model_name,
         "n": n,
@@ -136,7 +168,28 @@ def main():
             "t_stat": t, "p_value": pval, "win_rate_clap_gated": win_rate,
             "delta_mean": clap_mean - base_mean,
         },
+        "flat_aad_langprior_decoding": {
+            "description": "flat alpha on both contrasts, 5-fold CV x 20 repeats",
+            "cv_accuracy_mean": flat_mean,
+            "cv_accuracy_std": flat_std,
+        },
+        "gated_vs_flat_paired": paired_summary(base_accs, flat_accs),
     }
+
+    if single_prior is not None:
+        # paper Sec. 5.5: flat vs. gated with the single-prompt prior, then
+        # single-prompt vs. paraphrase-averaged prior under the gated rule
+        p_single = np.array([single_prior[r["object_name"]]["p_yes_text_only"] for r in rows])
+        sflat_mean, sflat_std, sflat_accs, _ = grid_search_cv(
+            decode_flat, (p_real, p_blank, p_single), gt_is_yes, alphas)
+        sgate_mean, sgate_std, sgate_accs, _ = grid_search_cv(
+            decode_baseline, (p_real, p_blank, p_single), gt_is_yes, alphas)
+        result["single_prompt_prior"] = {
+            "flat_cv_accuracy_mean": sflat_mean, "flat_cv_accuracy_std": sflat_std,
+            "gated_cv_accuracy_mean": sgate_mean, "gated_cv_accuracy_std": sgate_std,
+            "gated_vs_flat_paired": paired_summary(sgate_accs, sflat_accs),
+        }
+        result["ensemble_vs_single_prior_gated_paired"] = paired_summary(base_accs, sgate_accs)
 
     with open(args.out, "w") as f:
         json.dump(result, f, indent=2)
