@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "causa"
+version = "1.0.0"
+description = "Black-box causal audit of object hallucination in large audio-language models"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+    { name = "Mohammad Khalooei", email = "mohammad.khalooei@sharif.edu" },
+    { name = "Mohammad Sabokrou" },
+]
+dependencies = [
+    "torch>=2.11",
+    "transformers>=5.17",
+    "accelerate>=1.15",
+    "datasets>=5.0",
+    "huggingface_hub",
+    "librosa>=1.0",
+    "soundfile>=0.14",
+    "numpy>=2.5",
+    "scipy>=1.18",
+    "scikit-learn>=1.9",
+    "matplotlib",
+]
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[project.urls]
+Repository = "https://github.com/khalooei/causa"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

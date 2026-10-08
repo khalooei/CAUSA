@@ -1,0 +1,12 @@
+# Minimum versions; the paper's results were produced on a single RTX 5090 (32 GB).
+torch>=2.11
+transformers>=5.17
+accelerate>=1.15
+datasets>=5.0
+huggingface_hub
+librosa>=1.0
+soundfile>=0.14
+numpy>=2.5
+scipy>=1.18
+scikit-learn>=1.9
+matplotlib
