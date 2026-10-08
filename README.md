@@ -13,6 +13,10 @@
 [![ICASSP 2027](https://img.shields.io/badge/ICASSP-2027%20%28under%20review%29-4a3aa7)](#citation)
 [![License: MIT](https://img.shields.io/badge/License-MIT-1baf7a)](LICENSE)
 
+<b>A black-box, training-free causal test of whether audio-language models ground their answers in the audio: remove only the evidence a claim relies on, and see whether the model changes its mind.</b>
+
+Project page: <a href="https://khalooei.github.io/CAUSA/">khalooei.github.io/CAUSA</a>
+
 <img src="assets/fig_illustration.png" width="640" alt="Removing the CLAP-localized window from a real clip">
 
 <em>A correct "laughter" claim from Qwen2-Audio. Removing the CLAP-localized window (cyan)
