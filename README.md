@@ -4,7 +4,8 @@ Code for the paper **"Does Location Matter? A Black-Box Causal Audit Reveals
 Model-Dependent Audio Grounding in LALM Hallucination"** by Mohammad Khalooei
 (Sharif University of Technology) and Mohammad Sabokrou (New Uzbekistan
 University; Okinawa Institute of Science and Technology).
-[Paper PDF](paper/main.pdf)
+
+[Project page](https://khalooei.github.io/CAUSA/) | [Paper PDF](paper/main.pdf) | [Reproduction guide](REPRODUCE.md)
 
 Large audio-language models (LALMs) often say a sound is present when it is
 not. Audio-Aware Decoding (AAD), the usual inference-time fix, contrasts
@@ -126,8 +127,8 @@ and its language prior is near zero. No contrast improves it.
 ## Installation
 
 ```bash
-git clone https://github.com/khalooei/causa.git
-cd causa
+git clone https://github.com/khalooei/CAUSA.git
+cd CAUSA
 python -m venv .venv && source .venv/bin/activate
 pip install -e .            # or: pip install -r requirements.txt
 ```
@@ -223,6 +224,7 @@ reproduce/    ordered stage scripts that regenerate every result
 examples/     single-clip demo
 tests/        CPU tests for the waveform interventions
 paper/        LaTeX source, figures and figure scripts
+docs/         project page (GitHub Pages)
 ```
 
 ## Data and models

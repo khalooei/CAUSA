@@ -8,7 +8,7 @@ authors:
   - family-names: Sabokrou
     given-names: Mohammad
     affiliation: New Uzbekistan University; Okinawa Institute of Science and Technology
-repository-code: "https://github.com/khalooei/causa"
+repository-code: "https://github.com/khalooei/CAUSA"
 license: MIT
 preferred-citation:
   type: conference-paper

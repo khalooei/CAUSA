@@ -31,7 +31,8 @@ dependencies = [
 test = ["pytest"]
 
 [project.urls]
-Repository = "https://github.com/khalooei/causa"
+Repository = "https://github.com/khalooei/CAUSA"
+Homepage = "https://khalooei.github.io/CAUSA/"
 
 [tool.setuptools.packages.find]
 where = ["src"]
