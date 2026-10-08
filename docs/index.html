@@ -264,6 +264,9 @@ footer { padding: 32px 0 48px; color: var(--muted); font-size: .85rem; border-to
   <div class="wrap">
     <h2>Method</h2>
     <p class="lede">For a claim "yes, there is a sound of <i>o</i>", every condition is scored the same way: one deterministic forward pass, reading the next-token probabilities of "yes" and "no".</p>
+    <figure class="teaser" style="margin:1.2rem 0 1.4rem">
+      <img src="assets/overview.svg" alt="CAUSA overview: localize the evidence with CLAP, apply four interventions, score each with one LALM forward pass, then detect ungrounded claims or correct them by contrastive decoding" style="max-width:100%">
+    </figure>
     <ol class="steps">
       <li><b>Localize</b><p>Slide a 2 s or 4 s window (0.5 s hop) over the clip and score each window against "a sound of <i>o</i>" with LAION-CLAP. The best window is R(<i>o</i>).</p></li>
       <li><b>Remove</b><p>Attenuate R(<i>o</i>) by -40 or -100 dB with STFT masking and 50 ms raised-cosine edges, then ask again: a test of necessity, do(R(<i>o</i>) := &empty;).</p></li>
@@ -532,8 +535,9 @@ bash reproduce/05_analysis.sh     # all tables and statistics (CPU)</pre>
 
     /* 2. flip rates by model */
     var F = {
-      "4": [["Qwen2-Audio", 3.3, 2.2], ["Qwen2.5-Omni", 7.4, 3.9], ["AF3", 62.5, 41.5]],
-      "2": [["Qwen2-Audio", 1.0, 0.8], ["Qwen2.5-Omni", 1.5, 0.8], ["AF3", 26.0, 18.8]]
+      // [model, localized %, random %, gap in points as reported in the paper (Table 4)]
+      "4": [["Qwen2-Audio", 3.3, 2.2, 1.2], ["Qwen2.5-Omni", 7.4, 3.9, 3.5], ["AF3", 62.5, 41.5, 21.0]],
+      "2": [["Qwen2-Audio", 1.0, 0.8, 0.2], ["Qwen2.5-Omni", 1.5, 0.8, 0.7], ["AF3", 26.0, 18.8, 7.1]]
     };
     var f2 = frame("cFlip", "Dependence on evidence varies by model",
       "True positives flipped to \"no\" (%).",
@@ -542,14 +546,14 @@ bash reproduce/05_analysis.sh     # all tables and statistics (CPU)</pre>
       function (k) { state.flipSetting = k; renderCharts(); });
     var pct = function (v) { return v.toFixed(1) + "%"; };
     groupedBars(f2, F[state.flipSetting].map(function (r) {
-      return { label: r[0], sub: "gap +" + (r[1] - r[2]).toFixed(1), values: [
+      return { label: r[0], sub: "gap +" + r[3].toFixed(1), values: [
         { label: "Localized", v: r[1], color: LOC, fmt: pct(r[1]) },
         { label: "Random", v: r[2], color: RAND, fmt: pct(r[2]) } ] };
     }), { max: 70, ticks: [0, 20, 40, 60], tickFmt: function (v) { return v + "%"; }, labelValues: true,
           aria: "Necessity flip rate by model" });
-    tableView(f2, ["Model", "Setting", "Localized", "Random"],
-      [].concat(F["4"].map(function (r) { return [r[0], "4 s / -100 dB", pct(r[1]), pct(r[2])]; }),
-                F["2"].map(function (r) { return [r[0], "2 s / -40 dB", pct(r[1]), pct(r[2])]; })));
+    tableView(f2, ["Model", "Setting", "Localized", "Random", "Gap"],
+      [].concat(F["4"].map(function (r) { return [r[0], "4 s / -100 dB", pct(r[1]), pct(r[2]), "+" + r[3].toFixed(1)]; }),
+                F["2"].map(function (r) { return [r[0], "2 s / -40 dB", pct(r[1]), pct(r[2]), "+" + r[3].toFixed(1)]; })));
 
     /* 3. oracle control */
     var f3 = frame("cOracle", "Oracle control: known event positions",
@@ -566,8 +570,9 @@ bash reproduce/05_analysis.sh     # all tables and statistics (CPU)</pre>
       [["True (oracle)", "16.8%", "0.126"], ["CLAP", "10.5%", "0.079"], ["Random", "3.1%", "0.016"]]);
 
     /* 4. decoding accuracy, horizontal bars */
-    var rows = [["CAUSA-CD (localized)", 59.6], ["AAD-CD (blank)", 64.7], ["LangPrior-CD", 68.2],
-                ["AAD + LangPrior", 70.0], ["+ confidence gating", 71.4], ["+ paraphrase prior", 71.9]];
+    // [contrast, accuracy %, gain over raw in points as reported in the paper (Table 3)]
+    var rows = [["CAUSA-CD (localized)", 59.6, 2.5], ["AAD-CD (blank)", 64.7, 7.5], ["LangPrior-CD", 68.2, 11.1],
+                ["AAD + LangPrior", 70.0, 12.9], ["+ confidence gating", 71.4, 14.3], ["+ paraphrase prior", 71.9, 14.8]];
     var f4 = frame("cDecode", "Correcting answers at decoding time",
       "Qwen2-Audio accuracy on its own \"yes\" answers, alpha = 1.",
       [{ label: "Accuracy", color: LOC }, { label: "Raw decoding, 57.1%", dash: true }]);
@@ -586,11 +591,11 @@ bash reproduce/05_analysis.sh     # all tables and statistics (CPU)</pre>
       text(svg, m.l - 8, y + bh / 2 + 4, r[0], "cat-text", "end");
       text(svg, xs(r[1]) + 6, y + bh / 2 + 4, r[1].toFixed(1) + "%", "val-text", "start");
       var hit = el("rect", { x: 0, y: m.t + i * rh, width: W, height: rh, "class": "hit" }, svg);
-      attachTip(f4, hit, p, r[1].toFixed(1) + "%  (+" + (r[1] - 57.1).toFixed(1) + " pts)", r[0], LOC);
+      attachTip(f4, hit, p, r[1].toFixed(1) + "%  (+" + r[2].toFixed(1) + " pts)", r[0], LOC);
     });
     el("line", { x1: xs(57.1), x2: xs(57.1), y1: m.t, y2: H - m.b, stroke: css("--muted"), "stroke-width": 1.5, "stroke-dasharray": "4 3" }, svg);
     tableView(f4, ["Contrast", "Accuracy", "Gain over raw"], rows.map(function (r) {
-      return [r[0], r[1].toFixed(1) + "%", "+" + (r[1] - 57.1).toFixed(1)]; }));
+      return [r[0], r[1].toFixed(1) + "%", "+" + r[2].toFixed(1)]; }));
   }
   renderCharts();
   if (window.matchMedia) {
