@@ -11,12 +11,13 @@ authors:
 repository-code: "https://github.com/khalooei/CAUSA"
 license: MIT
 preferred-citation:
-  type: conference-paper
+  type: article
   title: "Does Location Matter? A Black-Box Causal Audit Reveals Model-Dependent Audio Grounding in LALM Hallucination"
   authors:
     - family-names: Khalooei
       given-names: Mohammad
     - family-names: Sabokrou
       given-names: Mohammad
-  collection-title: "Submitted to IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP 2027)"
-  year: 2027
+  status: submitted
+  notes: "Under review"
+  year: 2026

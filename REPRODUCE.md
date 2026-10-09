@@ -69,8 +69,8 @@ full-benchmark run is the faster of the two.
 ## Building the paper
 
 `07_paper.sh` runs the standard `pdflatex`, `bibtex`, `pdflatex`, `pdflatex`
-cycle with the official ICASSP 2027 template (`spconf.sty`,
-`IEEEbib.bst`, included). The result must be five pages, with the fifth
+cycle with the IEEE Signal Processing Society conference template
+(`spconf.sty`, `IEEEbib.bst`, included). The result must be five pages, with the fifth
 holding only references.
 
 ## Determinism

@@ -10,7 +10,7 @@
 
 [![Project Page](https://img.shields.io/badge/Project-Page-2a78d6)](https://khalooei.github.io/CAUSA/)
 [![Paper](https://img.shields.io/badge/Paper-PDF-b31b1b)](paper/main.pdf)
-[![ICASSP 2027](https://img.shields.io/badge/ICASSP-2027%20%28under%20review%29-4a3aa7)](#citation)
+[![Status: Under Review](https://img.shields.io/badge/Status-Under%20Review-4a3aa7)](#citation)
 [![License: MIT](https://img.shields.io/badge/License-MIT-1baf7a)](LICENSE)
 
 <b>A black-box, training-free causal test of whether audio-language models ground their answers in the audio: remove only the evidence a claim relies on, and see whether the model changes its mind.</b>
@@ -28,7 +28,7 @@ same length (white, dashed) does not.</em>
 ## News
 
 - **2026-10**: Code, reproduction scripts and the [project page](https://khalooei.github.io/CAUSA/) are released.
-- **2026-09**: Paper submitted to ICASSP 2027.
+- **2026-09**: Paper submitted for review.
 
 ## Overview
 
@@ -287,14 +287,13 @@ Each dataset and model is subject to its own license.
 ## Citation
 
 ```bibtex
-@inproceedings{khalooei2027causa,
-  title     = {Does Location Matter? {A} Black-Box Causal Audit Reveals
-               Model-Dependent Audio Grounding in {LALM} Hallucination},
-  author    = {Khalooei, Mohammad and Sabokrou, Mohammad},
-  booktitle = {IEEE International Conference on Acoustics, Speech and
-               Signal Processing (ICASSP)},
-  year      = {2027},
-  note      = {Under review}
+@misc{khalooei2026causa,
+  title  = {Does Location Matter? {A} Black-Box Causal Audit Reveals
+            Model-Dependent Audio Grounding in {LALM} Hallucination},
+  author = {Khalooei, Mohammad and Sabokrou, Mohammad},
+  year   = {2026},
+  note   = {Under review},
+  url    = {https://github.com/khalooei/CAUSA}
 }
 ```
 
