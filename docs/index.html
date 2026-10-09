@@ -81,7 +81,9 @@ header { padding: 64px 0 40px; text-align: center; }
 header h1 { font-size: clamp(1.7rem, 4.2vw, 2.6rem); margin: 0 auto 1rem; max-width: 860px; }
 .venue { letter-spacing: .12em; text-transform: uppercase; font-size: .78rem; color: var(--muted); margin-bottom: 1rem; }
 .authors { font-size: 1.1rem; margin: 0 0 .3rem; }
-.authors span + span { margin-left: 1.4em; }
+.authors span { display: inline-block; white-space: nowrap; margin: 0 .7em; }
+.affil span { display: inline-block; white-space: nowrap; margin: 0 .6em; }
+@media (max-width: 600px) { .affil br { display: none; } }
 .affil { color: var(--text-secondary); font-size: .92rem; margin: 0 0 1.6rem; }
 .buttons { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
 .btn {
@@ -201,8 +203,8 @@ footer { padding: 32px 0 48px; color: var(--muted); font-size: .85rem; border-to
   <div class="wrap">
     <div class="venue">ICASSP 2027 submission</div>
     <h1>Does Location Matter? A Black-Box Causal Audit Reveals Model-Dependent Audio Grounding in LALM Hallucination</h1>
-    <p class="authors"><span>Mohammad Khalooei<sup>1</sup></span><span>Mohammad Sabokrou<sup>2,3</sup></span></p>
-    <p class="affil"><sup>1</sup>Sharif University of Technology &nbsp;&middot;&nbsp; <sup>2</sup>New Uzbekistan University &nbsp;&middot;&nbsp; <sup>3</sup>Okinawa Institute of Science and Technology</p>
+    <p class="authors"><span>Mohammad Khalooei<sup>1,2</sup></span><span>Mohammad Sabokrou<sup>3,4</sup></span></p>
+    <p class="affil"><span><sup>1</sup>Sharif University of Technology</span> <span><sup>2</sup>Amirkabir University of Technology</span><br><span><sup>3</sup>New Uzbekistan University</span> <span><sup>4</sup>Okinawa Institute of Science and Technology</span></p>
     <div class="buttons">
       <a class="btn" href="https://github.com/khalooei/CAUSA/blob/main/paper/main.pdf">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h8"/></svg>Paper</a>

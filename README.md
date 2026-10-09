@@ -4,9 +4,9 @@
 
 ### A Black-Box Causal Audit Reveals Model-Dependent Audio Grounding in LALM Hallucination
 
-[Mohammad Khalooei](https://github.com/khalooei)<sup>1</sup>, Mohammad Sabokrou<sup>2,3</sup>
+[Mohammad Khalooei](https://github.com/khalooei)<sup>1,2</sup>, Mohammad Sabokrou<sup>3,4</sup>
 
-<sup>1</sup>Sharif University of Technology, <sup>2</sup>New Uzbekistan University, <sup>3</sup>Okinawa Institute of Science and Technology
+<sup>1</sup>Sharif University of Technology, <sup>2</sup>Amirkabir University of Technology, <sup>3</sup>New Uzbekistan University, <sup>4</sup>Okinawa Institute of Science and Technology
 
 [![Project Page](https://img.shields.io/badge/Project-Page-2a78d6)](https://khalooei.github.io/CAUSA/)
 [![Paper](https://img.shields.io/badge/Paper-PDF-b31b1b)](paper/main.pdf)
